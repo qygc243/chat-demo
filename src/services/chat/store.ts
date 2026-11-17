@@ -847,7 +847,10 @@ const prepareFiles = async (sessionId: string, request: Request, signal: AbortSi
   const pending = new Map<string, FileAttachment>()
   for (const [user] of getContextRounds(request.history).toReversed()) {
     for (const file of user.files) {
-      if (!file.serverId && !serverIds.has(file.id) && !pending.has(file.id)) {
+      const needsReupload =
+        !file.serverId ||
+        (useSettings.getState().apiProtocol === 'deepseek' && file.serverId.startsWith('local:'))
+      if (needsReupload && !serverIds.has(file.id) && !pending.has(file.id)) {
         pending.set(file.id, file)
       }
     }
