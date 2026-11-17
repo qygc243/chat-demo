@@ -4,6 +4,8 @@ import { uploadFile } from './api/client.js'
 import { classifyApiError, getUploadErrorInfo, isRetryableApiError } from './api/errors.js'
 import type { FilePurpose } from './api/types.js'
 import { ACCEPT_FILE_EXTS } from './uploadExts.js'
+import { useSettings } from './settings.js'
+import * as db from './chat/db.js'
 
 /** 允许上传的扩展名，按扩展名白名单过滤，清单见 uploadExts.ts */
 export const ACCEPTED_EXTS = ACCEPT_FILE_EXTS
@@ -177,7 +179,12 @@ export const uploadAttachment = (
   }
   const controller = new AbortController()
   setTask(id, { status: 'uploading' })
-  const promise = enqueueUpload(apiKey, blob, name, isImage, controller.signal)
+  // Generic providers accept different file representations. Store the original locally
+  // and let the selected chat endpoint choose inline text, image, PDF, or Responses input.
+  // This avoids assuming every provider implements DeepSeek's Files API.
+  const promise = (useSettings.getState().apiProtocol === 'openai'
+    ? db.saveFiles([{ id, blob }]).then(() => `local:${id}`)
+    : enqueueUpload(apiKey, blob, name, isImage, controller.signal))
     .then((serverId) => {
       setTask(id, { status: 'done', serverId })
       return serverId
