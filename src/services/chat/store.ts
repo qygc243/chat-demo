@@ -777,11 +777,12 @@ const saveServerIds = (sessionId: string, serverIds: Map<string, string>) => {
  * 本地也没有原件（导入的文档附件只有元数据）时返回 null，该附件只展示、不进入请求。
  */
 const ensureServerId = async (apiKey: string, file: FileAttachment): Promise<string | null> => {
-  if (file.serverId) {
+  const generic = useSettings.getState().apiProtocol === 'openai'
+  if (file.serverId && (generic || !file.serverId.startsWith('local:'))) {
     return file.serverId
   }
   const task = useUploads.getState().tasks[file.id]
-  if (task?.status === 'done') {
+  if (task?.status === 'done' && (generic || !task.serverId.startsWith('local:'))) {
     return task.serverId
   }
   const blob = await db.loadFile(file.id)
