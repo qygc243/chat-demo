@@ -309,7 +309,9 @@ export async function* streamOpenAIMessage(
       }
     }
   }
-  if (active) yield { type: 'content_block_stop', index: active.index }
+  // Nested streaming generator updates active; make this observable to TS control-flow analysis.
+  const finalActive = active as { index: number; kind: 'text' | 'thinking' } | null
+  if (finalActive) yield { type: 'content_block_stop', index: finalActive.index }
   if (!completed) throw new Error('Provider stream ended before completing')
   yield usage ?? { type: 'message_delta', delta: { stop_reason: stopReason, stop_sequence: null } }
   yield { type: 'message_stop' }
