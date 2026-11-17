@@ -170,7 +170,12 @@ export async function* streamOpenAIMessage(
 ): AsyncGenerator<MessageStreamEvent> {
   const messages = await prepare(body)
   const allParts = messages.flatMap(message => message.parts)
-  const hasFiles = allParts.some(part => part.kind !== 'text')
+  // Include text/code attachments too: they are inlined as text but still come from files.
+  const hasFiles = body.messages.some(
+    message => message.role === 'user' &&
+      typeof message.content !== 'string' &&
+      message.content.some(block => block.type === 'image' || block.type === 'document')
+  )
   const needsResponses = allParts.some(part => part.kind === 'file' && !part.pdf)
   const baseUrl = useSettings.getState().apiBaseUrl
   const headers = {
