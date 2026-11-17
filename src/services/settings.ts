@@ -3,6 +3,7 @@ import type { TtsVoice } from './api/speech.js'
 import { normalizeLocation, type UserLocation } from './location.js'
 
 export type Locale = 'zh-CN' | 'en-US'
+export type ApiProtocol = 'deepseek' | 'openai'
 
 /** 主题偏好；默认跟随系统 */
 export type ThemePreference = 'light' | 'dark' | 'system'
@@ -10,6 +11,9 @@ export type ThemePreference = 'light' | 'dark' | 'system'
 /** 本机设置，存 localStorage：API Key、语言、主题、位置、朗读音色、深度思考与智能搜索开关、侧边栏收起状态 */
 type Settings = {
   apiKey: string | null
+  apiBaseUrl: string
+  apiProtocol: ApiProtocol
+  selectedModel: string
   locale: Locale
   themePreference: ThemePreference
   location: UserLocation | null
@@ -21,6 +25,9 @@ type Settings = {
 
 const KEYS = {
   apiKey: 'chat-demo:api-key',
+  apiBaseUrl: 'chat-demo:api-base-url',
+  apiProtocol: 'chat-demo:api-protocol',
+  selectedModel: 'chat-demo:selected-model',
   locale: 'chat-demo:locale',
   location: 'chat-demo:location',
   themePreference: 'chat-demo:theme-preference',
@@ -89,6 +96,9 @@ const initialTtsVoice = (): TtsVoice => (read(KEYS.ttsVoice) === 'tide' ? 'tide'
 
 export const useSettings = create<Settings>(() => ({
   apiKey: read(KEYS.apiKey),
+  apiBaseUrl: read(KEYS.apiBaseUrl) || 'https://api.deepseek.com',
+  apiProtocol: read(KEYS.apiProtocol) === 'openai' ? 'openai' : 'deepseek',
+  selectedModel: read(KEYS.selectedModel) || 'deepseek-flash',
   locale: initialLocale(),
   location: initialLocation(),
   themePreference: initialThemePreference(),
@@ -117,6 +127,24 @@ export const setThemePreference = (themePreference: ThemePreference) => {
 export const setTtsVoice = (ttsVoice: TtsVoice) => {
   write(KEYS.ttsVoice, ttsVoice)
   useSettings.setState({ ttsVoice })
+}
+
+export const setApiConnection = (url: string, protocol: ApiProtocol) => {
+  const normalized = url.trim().replace(/\/+$/, '')
+  const parsed = new URL(normalized)
+  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))) {
+    throw new Error('API URL must use HTTPS (except localhost)')
+  }
+  write(KEYS.apiBaseUrl, normalized)
+  write(KEYS.apiProtocol, protocol)
+  useSettings.setState({ apiBaseUrl: normalized, apiProtocol: protocol })
+}
+
+export const setSelectedModel = (selectedModel: string) => {
+  const model = selectedModel.trim()
+  if (!model) return
+  write(KEYS.selectedModel, model)
+  useSettings.setState({ selectedModel: model })
 }
 
 export const setApiKey = (apiKey: string | null) => {
