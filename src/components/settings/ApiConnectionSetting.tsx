@@ -85,8 +85,8 @@ export const ApiConnectionSetting = () => {
         setModels([])
         setStatus('')
       }}>
-        <option value="deepseek">{zh ? 'DeepSeek 原生（保留文件支持）' : 'DeepSeek native (with files)'}</option>
-        <option value="openai">{zh ? 'OpenAI 兼容（目前仅文字）' : 'OpenAI-compatible (text only)'}</option>
+        <option value="deepseek">{zh ? 'DeepSeek 原生（Files API）' : 'DeepSeek native (Files API)'}</option>
+        <option value="openai">{zh ? 'OpenAI 兼容（文件自适应）' : 'OpenAI-compatible (adaptive files)'}</option>
       </select>
       <label htmlFor="api-base-url">{zh ? 'API 地址' : 'API Base URL'}</label>
       <input id="api-base-url" style={fieldStyle} type="url" value={url} placeholder="https://api.example.com/v1" autoCapitalize="none" spellCheck={false} onChange={event => setUrl(event.target.value)} />
@@ -111,7 +111,7 @@ export const ApiConnectionSetting = () => {
         autoCapitalize="none" spellCheck={false} onChange={event => setModel(event.target.value)} />
       <button type="button" style={buttonStyle} onClick={saveModel}>{zh ? '保存模型' : 'Save model'}</button>
       {protocol === 'openai' ? <small style={{opacity:0.7}}>
-        {zh ? '兼容模式目前只支持文字聊天；文件上传、联网工具和语音功能不会自动兼容第三方服务。深度思考开关也不会自动映射到厂商专有参数。' : 'Compatible mode is text-only. DeepSeek files, search and speech are not portable. The thinking switch does not map provider-specific parameters.'}
+        {zh ? '兼容模式支持按接口能力发送文本、图片、PDF 和其他文档；文件能否被解析取决于服务商及模型。联网工具、语音和专有深度思考参数暂不通用。' : 'Compatible mode adapts text, image, PDF and other files to provider endpoints. Processing depends on the API and model. Search, speech and provider-specific reasoning options are not portable.'}
       </small> : null}
       {status ? <small role="status" style={{color: isError ? 'var(--dsw-alias-state-error-primary)' : 'inherit'}}>{status}</small> : null}
     </div>

@@ -6,6 +6,7 @@ import type {
   OutputBlockStart,
   TextBlockParam,
 } from '../api/types.js'
+import { useSettings } from '../settings.js'
 import type {
   AssistantMessage,
   FileAttachment,
@@ -19,17 +20,20 @@ import type {
  * 文件按 Files API 的 file_id（附件的 serverId）引用：图片用 image 块，其余用 document 块。
  * 发送前 streamReply 会先补齐 serverId；仍为 null 的是本地没有原件的附件，不进入请求。
  */
-const toFileBlocks = (files: FileAttachment[]): FileBlockParam[] =>
-  files.flatMap(({ serverId, isImage }) =>
-    serverId
-      ? [
-          {
-            type: isImage ? 'image' : 'document',
-            source: { type: 'file', file_id: serverId },
-          },
-        ]
+const toFileBlocks = (files: FileAttachment[]): FileBlockParam[] => {
+  const generic = useSettings.getState().apiProtocol === 'openai'
+  return files.flatMap(({ id, serverId, isImage, name }) => {
+    // Generic providers must reference the local original, not a DeepSeek-only file_id.
+    const fileId = generic ? `local:${id}` : serverId?.startsWith('local:') ? null : serverId
+    return fileId
+      ? [{
+          type: isImage ? 'image' as const : 'document' as const,
+          source: { type: 'file' as const, file_id: fileId },
+          ...(generic ? { filename: name } : {}),
+        }]
       : []
-  )
+  })
+}
 
 const toReplyBlock = (block: OutputBlockStart, now: number): ReplyBlock | null => {
   switch (block.type) {
