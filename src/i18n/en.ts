@@ -1,6 +1,7 @@
 import type { zh } from './zh.js'
 
 export const en = {
+  uploadOpenAIUnsupported: 'OpenAI-compatible mode currently supports text chats only; file uploads are unavailable.',
   welcomeMessageChat250808: 'How can I help you?',
   contentCaveat: 'AI-generated, for reference only',
   expandSiderbarButton: 'Open sidebar',

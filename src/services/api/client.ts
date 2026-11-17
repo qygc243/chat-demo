@@ -1,6 +1,8 @@
 import { translate, type TranslationMessage } from '../../i18n/index.js'
 import { readMessageEvent } from './parseEvent.js'
 import { readServerSentEvents } from './sse.js'
+import { streamOpenAIMessage } from './openai.js'
+import { useSettings } from '../settings.js'
 import type {
   ApiErrorBody,
   CreateMessageRequest,
@@ -12,7 +14,9 @@ import type {
 /** 构建期 API 地址，默认 https://api.deepseek.com；本地开发支持开发服务器代理 */
 export const API_ORIGIN = __API_ORIGIN__
 /** Anthropic 兼容接口的前缀 */
-const ANTHROPIC_BASE_URL = `${API_ORIGIN}/anthropic/v1`
+const apiBase = () => useSettings.getState().apiBaseUrl || API_ORIGIN
+const deepseekApi = () => `${apiBase()}/anthropic/v1`
+const modelsApi = () => `${apiBase()}/models`
 /** 引用 Files API 上传的图片、调用 Anthropic 兼容 Files API 时必须携带 */
 const FILES_BETA = 'files-api-2025-04-14'
 
@@ -91,11 +95,28 @@ const anthropicHeaders = (apiKey: string, beta: boolean): Record<string, string>
 
 /** 用 GET /models 校验 API Key（不产生费用） */
 export const verifyApiKey = async (apiKey: string, signal?: AbortSignal): Promise<void> => {
-  await request(`${API_ORIGIN}/models`, {
+  await request(modelsApi(), {
     method: 'GET',
     headers: { Authorization: `Bearer ${apiKey}` },
     signal,
   })
+}
+
+/** Return model IDs exposed by the current provider's /models endpoint. */
+export const listModels = async (apiKey: string, signal?: AbortSignal): Promise<string[]> => {
+  const response = await request(modelsApi(), {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal,
+  })
+  const value: unknown = await response.json()
+  if (!value || typeof value !== 'object' || !('data' in value) || !Array.isArray(value.data)) {
+    throw new Error('Model API did not return data[]')
+  }
+  const ids = value.data
+    .filter((entry): entry is { id: string } => Boolean(entry) && typeof entry === 'object' && 'id' in entry && typeof entry.id === 'string')
+    .map(entry => entry.id)
+  return [...new Set(ids)].sort((a, b) => a.localeCompare(b))
 }
 
 /**
@@ -108,12 +129,15 @@ export const uploadFile = async (
   purpose: FilePurpose | null,
   signal?: AbortSignal
 ): Promise<FileObject> => {
+  if (useSettings.getState().apiProtocol !== 'deepseek') {
+    throw new Error('Files API is only available in DeepSeek mode')
+  }
   const form = new FormData()
   if (purpose) {
     form.append('purpose', purpose)
   }
   form.append('file', file)
-  const response = await request(`${ANTHROPIC_BASE_URL}/files`, {
+  const response = await request(`${deepseekApi()}/files`, {
     method: 'POST',
     headers: anthropicHeaders(apiKey, true),
     body: form,
@@ -124,7 +148,7 @@ export const uploadFile = async (
 
 /** DELETE /anthropic/v1/files/{file_id} */
 export const deleteFile = async (apiKey: string, fileId: string): Promise<void> => {
-  await request(`${ANTHROPIC_BASE_URL}/files/${encodeURIComponent(fileId)}`, {
+  await request(`${deepseekApi()}/files/${encodeURIComponent(fileId)}`, {
     method: 'DELETE',
     headers: anthropicHeaders(apiKey, true),
   })
@@ -146,7 +170,11 @@ export async function* streamMessage(
   body: CreateMessageRequest,
   signal: AbortSignal
 ): AsyncGenerator<MessageStreamEvent> {
-  const response = await request(`${ANTHROPIC_BASE_URL}/messages`, {
+  if (useSettings.getState().apiProtocol === 'openai') {
+    yield* streamOpenAIMessage(apiKey, body, signal)
+    return
+  }
+  const response = await request(`${deepseekApi()}/messages`, {
     method: 'POST',
     headers: {
       ...anthropicHeaders(apiKey, hasFile(body)),

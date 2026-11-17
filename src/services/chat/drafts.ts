@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useSettings } from '../settings.js'
 import type { TranslationMessage } from '../../i18n/index.js'
 import { createId } from '../../utils/id.js'
 import {
@@ -65,6 +66,9 @@ export const addDraftFiles = (
 ): TranslationMessage | null => {
   if (files.length === 0) {
     return null
+  }
+  if (useSettings.getState().apiProtocol === 'openai') {
+    return { key: 'uploadOpenAIUnsupported' }
   }
   const error = validateFiles(files, getDraft(sessionId).attachments.length)
   if (error) {
